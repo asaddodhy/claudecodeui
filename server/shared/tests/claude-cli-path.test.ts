@@ -6,6 +6,42 @@ import {
   type ResolveClaudeCodeExecutablePathDependencies,
 } from '@/shared/claude-cli-path.js';
 
+test('resolveClaudeCodeExecutablePath resolves the native installer path on macOS', () => {
+  const nativePath = '/Users/test/.local/bin/claude';
+
+  const resolved = resolveClaudeCodeExecutablePath('claude', {
+    platform: 'darwin',
+    homedir: () => '/Users/test',
+    pathValue: '/usr/bin:/bin',
+    existsSync: (candidate) => candidate === nativePath,
+  });
+
+  assert.equal(resolved, nativePath);
+});
+
+test('resolveClaudeCodeExecutablePath resolves a command from PATH on Linux', () => {
+  const nativePath = '/opt/claude/bin/claude';
+
+  const resolved = resolveClaudeCodeExecutablePath('claude', {
+    platform: 'linux',
+    homedir: () => '/home/test',
+    pathValue: '/usr/bin:/opt/claude/bin',
+    existsSync: (candidate) => candidate === nativePath,
+  });
+
+  assert.equal(resolved, nativePath);
+});
+
+test('resolveClaudeCodeExecutablePath keeps an explicit POSIX path unchanged', () => {
+  const nativePath = '/custom/bin/claude';
+
+  const resolved = resolveClaudeCodeExecutablePath(nativePath, {
+    platform: 'darwin',
+  });
+
+  assert.equal(resolved, nativePath);
+});
+
 test('resolveClaudeCodeExecutablePath resolves the npm Claude wrapper to its native exe on Windows', () => {
   const wrapperDir = 'C:\\nvm4w\\nodejs';
   const nativePath = `${wrapperDir}\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe`;

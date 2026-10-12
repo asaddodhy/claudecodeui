@@ -100,7 +100,15 @@ function getDesktopPath() {
   const currentPath = process.env.PATH || '';
   const commonPaths = process.platform === 'win32'
     ? []
-    : ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin'];
+    : [
+      path.join(os.homedir(), '.local', 'bin'),
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+    ];
 
   return [...commonPaths, currentPath].filter(Boolean).join(path.delimiter);
 }

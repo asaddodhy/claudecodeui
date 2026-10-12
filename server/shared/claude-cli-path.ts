@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const DEFAULT_CLAUDE_COMMAND = 'claude';
@@ -9,6 +10,8 @@ const CLAUDE_WRAPPER_SEGMENTS = ['node_modules', '@anthropic-ai', 'claude-code',
 export type ResolveClaudeCodeExecutablePathDependencies = {
   execFileSync?: typeof execFileSync;
   existsSync?: typeof fs.existsSync;
+  homedir?: typeof os.homedir;
+  pathValue?: string;
   platform?: NodeJS.Platform;
   readFileSync?: typeof fs.readFileSync;
 };
@@ -119,6 +122,30 @@ function resolveWindowsClaudeExecutablePath(
   return configuredPath;
 }
 
+function resolvePosixClaudeExecutablePath(
+  configuredPath: string,
+  deps: Required<ResolveClaudeCodeExecutablePathDependencies>,
+): string {
+  if (isPathLike(configuredPath) || path.isAbsolute(configuredPath)) {
+    return configuredPath;
+  }
+
+  const searchDirectories = [
+    path.join(deps.homedir(), '.local', 'bin'),
+    ...deps.pathValue.split(path.delimiter),
+  ];
+
+  for (const directory of searchDirectories) {
+    if (!directory) continue;
+    const candidate = path.join(directory, configuredPath);
+    if (deps.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return configuredPath;
+}
+
 export function resolveClaudeCodeExecutablePath(
   configuredPath: string | undefined = process.env.CLAUDE_CLI_PATH,
   dependencies: ResolveClaudeCodeExecutablePathDependencies = {},
@@ -126,13 +153,15 @@ export function resolveClaudeCodeExecutablePath(
   const deps: Required<ResolveClaudeCodeExecutablePathDependencies> = {
     execFileSync: dependencies.execFileSync ?? execFileSync,
     existsSync: dependencies.existsSync ?? fs.existsSync,
+    homedir: dependencies.homedir ?? os.homedir,
+    pathValue: dependencies.pathValue ?? process.env.PATH ?? '',
     platform: dependencies.platform ?? process.platform,
     readFileSync: dependencies.readFileSync ?? fs.readFileSync,
   };
 
   const normalizedPath = stripWrappingQuotes(configuredPath || DEFAULT_CLAUDE_COMMAND);
   if (deps.platform !== 'win32') {
-    return normalizedPath;
+    return resolvePosixClaudeExecutablePath(normalizedPath, deps);
   }
 
   return resolveWindowsClaudeExecutablePath(normalizedPath, deps);
